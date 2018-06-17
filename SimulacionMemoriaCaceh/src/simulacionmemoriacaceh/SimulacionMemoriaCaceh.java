@@ -27,7 +27,7 @@ public class SimulacionMemoriaCaceh {
     static int[] memoriaRam = new int[tamanoRam];
     static int[][] memoriaCache = new int[numeroLineas][tamanoBloque + 3];
     static final int NULL = -1;
-    static float tiempo = 0;
+    static double tiempo = 0;
 
     /**
      * @param args the command line arguments
@@ -35,27 +35,52 @@ public class SimulacionMemoriaCaceh {
     public static void main(String[] args) throws IOException {
         // TODO code application logic here
         //Cargando RAm
+        System.out.println("NUMERO DE Bloques:" + numeroBloques);
+        System.out.println("NUMERO DE Lineas:" + numeroLineas);
+
         cargarRam(memoriaRam);
-        for (int i = 100; i <= 115; i++) {
-            System.out.println(memoriaRam[i]);
-        }
+        iniciarCache(memoriaCache);
+//        for (int i = 0; i < 100; i++) {
+//            System.out.println(memoriaRam[i]);
+//        }
         //  System.out.println(leerDirecto(15));
         //  System.out.println(leerSinCache(15));
-
+        double tiempo1 = 0;
+        double tiempo2 = 0;
+        ordenarNumeros(0, tamanoRam);
+        tiempo1 = tiempo;
+        tiempo = 0;
+        iniciarCache(memoriaCache);
+        cargarRam(memoriaRam);
+        ordenarNumeros(1, tamanoRam);
+        tiempo2 = tiempo;
         System.out.println(tiempo);
-        prueba(1);
-        System.out.println(tiempo);
-
-        for (int i = 100; i <= 115; i++) {
-            System.out.println(memoriaRam[i]);
-        }
+        System.out.println("TIPO        TIEMPO");
+        System.out.println("Sin Cache   "+tiempo1);
+        System.out.println("Directo     "+tiempo2);
+//        vaciarCacheEnRam();
+//        for (int i = 0; i < 100; i++) {
+//            System.out.println(memoriaRam[i]);
+//        }
     }
 
     public static void iniciarCache(int[][] cache) {
         //Valor 
         for (int i = 0; i < cache.length; i++) {
-            for (int j = 0; j < cache.length; j++) {
+            for (int j = 0; j < cache[i].length; j++) {
                 cache[i][j] = NULL;
+            }
+        }
+    }
+
+    public static void vaciarCacheEnRam() {
+        for (int i = 0; i < memoriaCache.length; i++) {
+            if (memoriaCache[i][1] != NULL) {
+                int linea = memoriaCache[i][1] * tamanoBloque;
+                for (int j = 3; j < memoriaCache[i].length; j++) {
+                    memoriaRam[linea] = memoriaCache[i][j];
+                    linea++;
+                }
             }
         }
     }
@@ -77,6 +102,29 @@ public class SimulacionMemoriaCaceh {
 
     }
 
+    public static void ordenarNumeros(int tipo, int n) {
+        int b, a;
+        int cambios = 1;
+        int limites = n - 1;
+        while (cambios > 0) {
+            cambios = 0;
+            b = leer(0, tipo);
+            for (int i = 0; i < limites; i++) {
+                a = leer(i, tipo);
+                if (a < b) {
+                    escribir(i, tipo, b);
+                    escribir(i - 1, tipo, a);
+                    a = b;
+                    cambios += 1;
+                } else {
+                    b = a;
+                }
+            }
+            limites = limites - 1;
+        }
+
+    }
+
     public static int leerDirecto(int direccion) {
         //Valores calculados
         //10 bits totales
@@ -89,13 +137,11 @@ public class SimulacionMemoriaCaceh {
         int linea = bloque % numeroLineas;
         int palabra = direccion % tamanoBloque;
         int etiqueta = bloque / numeroLineas;
-//        System.out.println("Direccion: " + direccion);
 //        System.out.println("Bloque " + bloque);
-//        System.out.println("linea " + linea);
-//        System.out.println("palabra " + palabra);
-//        System.out.println("etiqueta " + etiqueta);
+//        System.out.println("Bloque Linea " + memoriaCache[linea][1]);
+
         if (memoriaCache[linea][0] == 1) {
-            if (memoriaCache[linea][1] == etiqueta && memoriaCache[linea][2] == 0) {
+            if (memoriaCache[linea][1] == bloque) {
                 tiempo += 0.01;
                 return memoriaCache[linea][palabra + 3];
             } else if (memoriaCache[linea][2] == 1) {
@@ -113,8 +159,8 @@ public class SimulacionMemoriaCaceh {
                     memoriaCache[linea][i + 3] = memoriaRam[primeraDireccion];
                     primeraDireccion++;
                 }
-                tiempo += 0.22;
-                // memoriaCache[linea][1] = etiqueta;
+                tiempo += 0.21;
+                memoriaCache[linea][1] = bloque;
                 memoriaCache[linea][2] = 0;
                 return memoriaCache[linea][palabra + 3];
             } else {
@@ -125,7 +171,7 @@ public class SimulacionMemoriaCaceh {
                     memoriaCache[linea][i + 3] = memoriaRam[primeraDireccion];
                     primeraDireccion++;
                 }
-                //   memoriaCache[linea][1] = etiqueta;
+                memoriaCache[linea][1] = bloque;
                 memoriaCache[linea][2] = 0;
                 return memoriaCache[linea][palabra + 3];
 
@@ -138,9 +184,8 @@ public class SimulacionMemoriaCaceh {
             for (int i = 0; i < tamanoBloque; i++) {
                 memoriaCache[linea][i + 3] = memoriaRam[primeraDireccion];
                 primeraDireccion++;
-                System.out.println(primeraDireccion);
             }
-            // memoriaCache[linea][1] = etiqueta;
+            memoriaCache[linea][1] = bloque;
             memoriaCache[linea][0] = 1;
             memoriaCache[linea][2] = 0;
             return memoriaCache[linea][palabra + 3];
@@ -162,13 +207,12 @@ public class SimulacionMemoriaCaceh {
         int linea = bloque % numeroLineas;
         int palabra = direccion % tamanoBloque;
         int etiqueta = bloque / numeroLineas;
-//        System.out.println("Direccion: " + direccion);
+//
 //        System.out.println("Bloque " + bloque);
-//        System.out.println("linea " + linea);
-//        System.out.println("palabra " + palabra);
-//        System.out.println("etiqueta " + etiqueta);
+//        System.out.println("Bloque Linea " + memoriaCache[linea][1]);
+
         if (memoriaCache[linea][0] == 1) {
-            if (memoriaCache[linea][1] == etiqueta && memoriaCache[linea][2] == 0) {
+            if (memoriaCache[linea][1] == bloque) {
                 tiempo += 0.01;
                 //Cambia Valor
                 memoriaCache[linea][palabra + 3] = valor;
@@ -176,7 +220,7 @@ public class SimulacionMemoriaCaceh {
                 memoriaCache[linea][2] = 1;
                 return NULL;
             } else if (memoriaCache[linea][2] == 1) {
-                tiempo += 0.22;
+                tiempo += 0.21;
                 //Cache a Ram
                 int bloqueEsta = memoriaCache[linea][3] / tamanoBloque;
                 int direccionEnRam = bloqueEsta * tamanoBloque;
@@ -202,7 +246,7 @@ public class SimulacionMemoriaCaceh {
                     memoriaCache[linea][i + 3] = memoriaRam[primeraDireccion];
                     primeraDireccion++;
                 }
-                //          memoriaCache[linea][1] = etiqueta;
+                memoriaCache[linea][1] = bloque;
                 memoriaCache[linea][2] = 1;
                 memoriaCache[linea][palabra + 3] = valor;
                 return NULL;
@@ -216,7 +260,7 @@ public class SimulacionMemoriaCaceh {
                 memoriaCache[linea][i + 3] = memoriaRam[primeraDireccion];
                 primeraDireccion++;
             }
-            //  memoriaCache[linea][1] = etiqueta;
+            memoriaCache[linea][1] = bloque;
             memoriaCache[linea][0] = 1;
             memoriaCache[linea][2] = 1;
             memoriaCache[linea][palabra + 3] = valor;
@@ -240,7 +284,7 @@ public class SimulacionMemoriaCaceh {
     }
 
     public static int leer(int direccion, int tipo) {
-        System.out.println("Leer");
+        //System.out.println("Leer");
         if (tipo == 0) {
             return leerSinCache(direccion);
 
@@ -256,40 +300,43 @@ public class SimulacionMemoriaCaceh {
         if (tipo == 0) {
             escribirSinCache(posicion, valor);
         } else if (tipo == 1) {
-            System.out.println("Escribir");
+        
             escribirDirecto(posicion, valor);
         }
     }
 
     public static void prueba(int tipo) {
-        escribir(100, tipo, 10);    //En la memoria 100 escribe un 10
-        escribir(101, tipo, 13);
-        escribir(102, tipo, 21);
-        escribir(103, tipo, 11);
-        escribir(104, tipo, 67);
-        escribir(105, tipo, 43);
-        escribir(106, tipo, 9);
-        escribir(107, tipo, 11);
-        escribir(108, tipo, 19);
-        escribir(109, tipo, 23);
-        escribir(110, tipo, 32);
-        escribir(111, tipo, 54);
-        escribir(112, tipo, 98);
-        escribir(113, tipo, 7);
-        escribir(114, tipo, 13);
-        escribir(115, tipo, 1);
-        int menor = leer(100, tipo);
+        escribir(100, tipo, 10);    //0.11
+        escribir(101, tipo, 13);    //0.01
+        escribir(102, tipo, 21);    //0.01
+        escribir(103, tipo, 11);    //0.01
+        escribir(104, tipo, 67);    //0.01
+        escribir(105, tipo, 43);    //0.01
+        escribir(106, tipo, 9);     //0.01
+        escribir(107, tipo, 11);    //0.01
+        escribir(108, tipo, 19);    //0.01
+        escribir(109, tipo, 23);    //0.01
+        escribir(110, tipo, 32);    //0.01
+        escribir(111, tipo, 54);    //0.01
+        escribir(112, tipo, 98);    //0.11
+        escribir(113, tipo, 7);     //0.01
+        escribir(114, tipo, 13);    //0.01
+        escribir(115, tipo, 1);     //0.01
+
+        int menor = leer(100, tipo);//0.11 
         int mayor = menor;
         int a = 0;
+        int me = 600;
         for (int i = 101; i <= 115; i++) {
             a++;
-            escribir(615, tipo, a);
-            if (leer(i, tipo) < menor) {
+            escribir(me, tipo, a);//0.11
+            if (leer(i, tipo) < menor) {//0.01
                 menor = leer(i, tipo);
             }
-            if (leer(i, tipo) > mayor) {
+            if (leer(i, tipo) > mayor) {//0.01
                 mayor = leer(i, tipo);
             }
+            me += 10;
         }
         System.out.println("Mayor");
         System.out.println(mayor);
