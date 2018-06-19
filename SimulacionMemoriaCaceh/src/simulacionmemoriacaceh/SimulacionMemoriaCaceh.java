@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.Scanner;
 
 /**
  *
@@ -22,12 +23,16 @@ public class SimulacionMemoriaCaceh {
     static int tamanoCache = 1024;//bytes
     static int tamanoBloque = 16;//bytes
     static int tamanoPalabra = 1;//byte
+    static int tamanoConjunto = 8;
     static int numeroLineas = tamanoCache / tamanoBloque;
     static int numeroBloques = tamanoRam / tamanoBloque;
     static int[] memoriaRam = new int[tamanoRam];
     static int[][] memoriaCache = new int[numeroLineas][tamanoBloque + 3];
     static final int NULL = -1;
     static double tiempo = 0;
+    static int cantidadConjunto = numeroLineas / tamanoConjunto;
+    static int[] punterosConjunto = new int[cantidadConjunto];
+    static int puntero = 0;
 
     /**
      * @param args the command line arguments
@@ -35,9 +40,7 @@ public class SimulacionMemoriaCaceh {
     public static void main(String[] args) throws IOException {
         // TODO code application logic here
         //Cargando RAm
-        System.out.println("NUMERO DE Bloques:" + numeroBloques);
-        System.out.println("NUMERO DE Lineas:" + numeroLineas);
-
+        iniciarPunteros();
         cargarRam(memoriaRam);
         iniciarCache(memoriaCache);
 //        for (int i = 0; i < 100; i++) {
@@ -47,17 +50,35 @@ public class SimulacionMemoriaCaceh {
         //  System.out.println(leerSinCache(15));
         double tiempo1 = 0;
         double tiempo2 = 0;
-        ordenarNumeros(0, tamanoRam);
+        double tiempo3 = 0;
+        double tiempo4 = 0;
+        Scanner in = new Scanner(System.in);
+        System.out.println("Ingrese N:");
+        int input = in.nextInt();
+        ordenarNumeros(0, input);
         tiempo1 = tiempo;
         tiempo = 0;
         iniciarCache(memoriaCache);
         cargarRam(memoriaRam);
-        ordenarNumeros(1, tamanoRam);
+        ordenarNumeros(1, input);
         tiempo2 = tiempo;
+        tiempo = 0;
+        iniciarCache(memoriaCache);
+        cargarRam(memoriaRam);
+        ordenarNumeros(2, input);
+        tiempo3 = tiempo;
+        tiempo = 0;
+        iniciarCache(memoriaCache);
+        cargarRam(memoriaRam);
+        ordenarNumeros(3, input);
+        tiempo4 = tiempo;
         System.out.println(tiempo);
         System.out.println("TIPO        TIEMPO");
-        System.out.println("Sin Cache   "+tiempo1);
-        System.out.println("Directo     "+tiempo2);
+        System.out.println("Sin Cache      " + tiempo1);
+        System.out.println("Directo        " + tiempo2);
+        System.out.println("Asociativa     " + tiempo3);
+        System.out.println("Aso.Conjunto   " + tiempo4);
+
 //        vaciarCacheEnRam();
 //        for (int i = 0; i < 100; i++) {
 //            System.out.println(memoriaRam[i]);
@@ -291,6 +312,11 @@ public class SimulacionMemoriaCaceh {
         } else if (tipo == 1) {
 
             return leerDirecto(direccion);
+        } else if (tipo == 3) {
+
+            return leerAsociativaConjunto(direccion);
+        } else if (tipo == 2) {
+            return leerAsociativa(direccion);
         } else {
             return 0;
         }
@@ -300,8 +326,14 @@ public class SimulacionMemoriaCaceh {
         if (tipo == 0) {
             escribirSinCache(posicion, valor);
         } else if (tipo == 1) {
-        
+
             escribirDirecto(posicion, valor);
+        } else if (tipo == 3) {
+
+            escribirAsociativaConjunto(posicion, valor);
+        } else if (tipo == 2) {
+            escribirAsociativa(posicion, valor);
+
         }
     }
 
@@ -341,6 +373,345 @@ public class SimulacionMemoriaCaceh {
         System.out.println("Mayor");
         System.out.println(mayor);
 
+    }
+
+    public static void iniciarPunteros() {
+        for (int i = 0; i < punterosConjunto.length; i++) {
+            punterosConjunto[i] = i * tamanoConjunto;
+        }
+
+    }
+
+    public static int leerAsociativaConjunto(int direccion) {
+        int bloque = direccion / tamanoBloque;
+        int conjunto = bloque % cantidadConjunto;
+        int palabra = direccion % tamanoBloque;
+        //buscamos la linea asignada para esa direccion si no esta devuelve la primera
+        int linea = lineaCache(bloque, conjunto);
+
+        if (memoriaCache[linea][0] == 1) {
+            //Esta en cahce
+            if (estaEnCache(bloque, conjunto)) {
+                tiempo += 0.01;
+                return memoriaCache[linea][palabra + 3];
+            } else if (memoriaCache[linea][2] == 1) {
+                //Cache a Ram
+                int bloqueEsta = memoriaCache[linea][1];
+                int direccionEnRam = bloqueEsta * tamanoBloque;
+
+                for (int i = 0; i < tamanoBloque; i++) {
+                    memoriaRam[direccionEnRam] = memoriaCache[linea][i + 3];
+                    direccionEnRam++;
+                }
+                //Ram a Cache
+                int primeraDireccion = bloque * tamanoBloque;
+                for (int i = 0; i < tamanoBloque; i++) {
+                    memoriaCache[linea][i + 3] = memoriaRam[primeraDireccion];
+                    primeraDireccion++;
+                }
+                tiempo += 0.21;
+                memoriaCache[linea][1] = bloque;
+                memoriaCache[linea][2] = 0;
+                return memoriaCache[linea][palabra + 3];
+            } else {
+                //Aumentamos el puntero de la siguiente direccion en el conjunto
+                //Para poder a escribir alli si fuese necesario
+                punterosConjunto[conjunto]++;
+                //Se ha pasado del conjunto lo reinicia a su posicion inicial
+                if (punterosConjunto[conjunto] % tamanoConjunto == 0) {
+                    punterosConjunto[conjunto] -= 8;
+                }
+                //Ram a Cache
+                tiempo += 0.11;
+                int primeraDireccion = bloque * tamanoBloque;
+                for (int i = 0; i < tamanoBloque; i++) {
+                    memoriaCache[linea][i + 3] = memoriaRam[primeraDireccion];
+                    primeraDireccion++;
+                }
+                memoriaCache[linea][1] = bloque;
+                memoriaCache[linea][0] = 1;
+                memoriaCache[linea][2] = 0;
+                return memoriaCache[linea][palabra + 3];
+
+            }
+
+        } else {
+            //Aumentamos el puntero de la siguiente direccion en el conjunto
+            //Para poder a escribir alli si fuese necesario
+            punterosConjunto[conjunto]++;
+            //Se ha pasado del conjunto lo reinicia a su posicion inicial
+            if (punterosConjunto[conjunto] % tamanoConjunto == 0) {
+                punterosConjunto[conjunto] -= 8;
+            }
+            //Ram a Cache
+            tiempo += 0.11;
+            int primeraDireccion = bloque * tamanoBloque;
+            for (int i = 0; i < tamanoBloque; i++) {
+                memoriaCache[linea][i + 3] = memoriaRam[primeraDireccion];
+                primeraDireccion++;
+            }
+            memoriaCache[linea][1] = bloque;
+            memoriaCache[linea][0] = 1;
+            memoriaCache[linea][2] = 0;
+            return memoriaCache[linea][palabra + 3];
+        }
+
+    }
+
+    public static int escribirAsociativaConjunto(int direccion, int valor) {
+        int bloque = direccion / tamanoBloque;
+        int conjunto = bloque % cantidadConjunto;
+        int palabra = direccion % tamanoBloque;
+        //buscamos la linea asignada para esa direccion si no esta devuelve la primera
+        int linea = lineaCache(bloque, conjunto);
+
+        if (memoriaCache[linea][0] == 1) {
+            //Esta en cahce
+            if (estaEnCache(bloque, conjunto)) {
+                tiempo += 0.01;
+                memoriaCache[linea][palabra + 3] = valor;
+                return memoriaCache[linea][palabra + 3];
+            } else if (memoriaCache[linea][2] == 1) {
+                //Cache a Ram
+                int bloqueEsta = memoriaCache[linea][1];
+                int direccionEnRam = bloqueEsta * tamanoBloque;
+
+                for (int i = 0; i < tamanoBloque; i++) {
+                    memoriaRam[direccionEnRam] = memoriaCache[linea][i + 3];
+                    direccionEnRam++;
+                }
+                //Ram a Cache
+                int primeraDireccion = bloque * tamanoBloque;
+                for (int i = 0; i < tamanoBloque; i++) {
+                    memoriaCache[linea][i + 3] = memoriaRam[primeraDireccion];
+                    primeraDireccion++;
+                }
+                tiempo += 0.21;
+                memoriaCache[linea][1] = bloque;
+                memoriaCache[linea][2] = 0;
+                memoriaCache[linea][palabra + 3] = valor;
+                return memoriaCache[linea][palabra + 3];
+            } else {
+                //Aumentamos el puntero de la siguiente direccion en el conjunto
+                //Para poder a escribir alli si fuese necesario
+                punterosConjunto[conjunto]++;
+                //Se ha pasado del conjunto lo reinicia a su posicion inicial
+                if (punterosConjunto[conjunto] % tamanoConjunto == 0) {
+                    punterosConjunto[conjunto] -= 8;
+                }
+                //Ram a Cache
+                tiempo += 0.11;
+                int primeraDireccion = bloque * tamanoBloque;
+                for (int i = 0; i < tamanoBloque; i++) {
+                    memoriaCache[linea][i + 3] = memoriaRam[primeraDireccion];
+                    primeraDireccion++;
+                }
+                memoriaCache[linea][1] = bloque;
+                memoriaCache[linea][0] = 1;
+                memoriaCache[linea][2] = 0;
+                memoriaCache[linea][palabra + 3] = valor;
+                return memoriaCache[linea][palabra + 3];
+
+            }
+
+        } else {
+            //Aumentamos el puntero de la siguiente direccion en el conjunto
+            //Para poder a escribir alli si fuese necesario
+            punterosConjunto[conjunto]++;
+            //Se ha pasado del conjunto lo reinicia a su posicion inicial
+            if (punterosConjunto[conjunto] % tamanoConjunto == 0) {
+                punterosConjunto[conjunto] -= 8;
+            }
+            //Ram a Cache
+            tiempo += 0.11;
+            int primeraDireccion = bloque * tamanoBloque;
+            for (int i = 0; i < tamanoBloque; i++) {
+                memoriaCache[linea][i + 3] = memoriaRam[primeraDireccion];
+                primeraDireccion++;
+            }
+            memoriaCache[linea][1] = bloque;
+            memoriaCache[linea][0] = 1;
+            memoriaCache[linea][2] = 0;
+            memoriaCache[linea][palabra + 3] = valor;
+            return memoriaCache[linea][palabra + 3];
+        }
+
+    }
+
+    public static int lineaCache(int bloque, int conjunto) {
+        int lineaCont = conjunto * tamanoConjunto;
+        for (int i = 0; i < tamanoConjunto; i++) {
+            if (bloque == memoriaCache[lineaCont][1]) {
+                return lineaCont;
+            }
+            lineaCont++;
+        }
+        return punterosConjunto[conjunto];
+    }
+
+    public static boolean estaEnCache(int bloque, int conjunto) {
+        int lineaCont = conjunto * tamanoConjunto;
+        for (int i = 0; i < tamanoConjunto; i++) {
+            if (bloque == memoriaCache[lineaCont][1]) {
+                return true;
+            }
+            lineaCont++;
+        }
+        return false;
+    }
+
+    public static int leerAsociativa(int direccion) {
+        int bloque = direccion / tamanoBloque;
+        int linea = lineaCacheAsociativa(bloque);
+        int palabra = direccion % tamanoBloque;
+        if (memoriaCache[linea][0] == 1) {
+            if (memoriaCache[linea][1] == bloque) {
+                tiempo += 0.01;
+                return memoriaCache[linea][palabra + 3];
+            } else if (memoriaCache[linea][2] == 1) {
+                //Cache a Ram
+                int bloqueEsta = memoriaCache[linea][3] / tamanoBloque;
+                int direccionEnRam = bloqueEsta * tamanoBloque;
+
+                for (int i = 0; i < tamanoBloque; i++) {
+                    memoriaRam[direccionEnRam] = memoriaCache[linea][i + 3];
+                    direccionEnRam++;
+                }
+                //Ram a Cache
+                int primeraDireccion = bloque * tamanoBloque;
+                for (int i = 0; i < tamanoBloque; i++) {
+                    memoriaCache[linea][i + 3] = memoriaRam[primeraDireccion];
+                    primeraDireccion++;
+                }
+                tiempo += 0.21;
+                memoriaCache[linea][1] = bloque;
+                memoriaCache[linea][2] = 0;
+                return memoriaCache[linea][palabra + 3];
+            } else {
+                //Ram a Cache
+                tiempo += 0.11;
+                int primeraDireccion = bloque * tamanoBloque;
+                for (int i = 0; i < tamanoBloque; i++) {
+                    memoriaCache[linea][i + 3] = memoriaRam[primeraDireccion];
+                    primeraDireccion++;
+                }
+                memoriaCache[linea][1] = bloque;
+                memoriaCache[linea][2] = 0;
+                puntero++;
+                if (puntero == numeroLineas) {
+                    puntero = 0;
+                }
+                return memoriaCache[linea][palabra + 3];
+
+            }
+        } else {
+
+            //Ram a Cache
+            tiempo += 0.11;
+            int primeraDireccion = bloque * tamanoBloque;
+            for (int i = 0; i < tamanoBloque; i++) {
+                memoriaCache[linea][i + 3] = memoriaRam[primeraDireccion];
+                primeraDireccion++;
+            }
+            memoriaCache[linea][1] = bloque;
+            memoriaCache[linea][0] = 1;
+            memoriaCache[linea][2] = 0;
+            puntero++;
+            if (puntero == numeroLineas) {
+                puntero = 0;
+            }
+            return memoriaCache[linea][palabra + 3];
+
+        }
+
+    }
+
+    public static int escribirAsociativa(int direccion, int valor) {
+        int bloque = direccion / tamanoBloque;
+        int linea = lineaCacheAsociativa(bloque);
+        int palabra = direccion % tamanoBloque;
+        if (memoriaCache[linea][0] == 1) {
+            if (memoriaCache[linea][1] == bloque) {
+                tiempo += 0.01;
+                //Cambia Valor
+                memoriaCache[linea][palabra + 3] = valor;
+                //modificado true;
+                memoriaCache[linea][2] = 1;
+                return NULL;
+            } else if (memoriaCache[linea][2] == 1) {
+                tiempo += 0.21;
+                //Cache a Ram
+                int bloqueEsta = memoriaCache[linea][3] / tamanoBloque;
+                int direccionEnRam = bloqueEsta * tamanoBloque;
+                for (int i = 0; i < tamanoBloque; i++) {
+                    memoriaRam[direccionEnRam] = memoriaCache[linea][i + 3];
+                    direccionEnRam++;
+                }
+                //Ram a Cache
+                int primeraDireccion = bloque * tamanoBloque;
+                for (int i = 0; i < tamanoBloque; i++) {
+                    memoriaCache[linea][i + 3] = memoriaRam[primeraDireccion];
+                    primeraDireccion++;
+                }
+                //            memoriaCache[linea][1] = etiqueta;
+                memoriaCache[linea][2] = 1;
+                memoriaCache[linea][palabra + 3] = valor;
+                return NULL;
+            } else {
+                //Ram a Cache
+                tiempo += 0.11;
+                int primeraDireccion = bloque * tamanoBloque;
+                for (int i = 0; i < tamanoBloque; i++) {
+                    memoriaCache[linea][i + 3] = memoriaRam[primeraDireccion];
+                    primeraDireccion++;
+                }
+                memoriaCache[linea][1] = bloque;
+                memoriaCache[linea][2] = 1;
+                memoriaCache[linea][palabra + 3] = valor;
+                puntero++;
+                if (puntero == numeroLineas) {
+                    puntero = 0;
+                }
+                return NULL;
+            }
+        } else {
+
+            //Ram a Cache
+            tiempo += 0.11;
+            int primeraDireccion = bloque * tamanoBloque;
+            for (int i = 0; i < tamanoBloque; i++) {
+                memoriaCache[linea][i + 3] = memoriaRam[primeraDireccion];
+                primeraDireccion++;
+            }
+            memoriaCache[linea][1] = bloque;
+            memoriaCache[linea][0] = 1;
+            memoriaCache[linea][2] = 1;
+            memoriaCache[linea][palabra + 3] = valor;
+            puntero++;
+            if (puntero == numeroLineas) {
+                puntero = 0;
+            }
+            return NULL;
+
+        }
+
+    }
+
+    public static boolean estaCacheAsociativa(int bloque) {
+        for (int i = 0; i < numeroLineas; i++) {
+            if (memoriaCache[i][1] == bloque) {
+                return true;
+            }
+        }
+        return false;
+    }
+    public static int lineaCacheAsociativa(int bloque) {
+        for (int i = 0; i < numeroLineas; i++) {
+            if (memoriaCache[i][1] == bloque) {
+                return i;
+            }
+        }
+        return puntero;
     }
 
 }
